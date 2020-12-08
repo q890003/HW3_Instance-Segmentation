@@ -1,7 +1,7 @@
 ---
 Selected-Topics-in-Visual-Recognition-using-Deep-Learning HW3
 ---
-[TOC]
+<!-- TOC -->autoauto- [Instance Segmentation](#instance-segmentation)auto    - [Reproducing the work](#reproducing-the-work)auto        - [Enviroment Installation](#enviroment-installation)auto        - [Project installation](#project-installation)auto    - [Training](#training)auto    - [Inference](#inference)autoauto<!-- /TOC -->[TOC]
 # Instance Segmentation
 ![](https://i.imgur.com/rNpyJmf.png)
 
