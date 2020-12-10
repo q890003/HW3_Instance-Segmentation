@@ -11,6 +11,7 @@ import torchvision.transforms.functional as FT
 import torchvision
 from dataset.autoaugment import ImageNetPolicy
 
+
 def photometric_distort(image):
     """
     Distort brightness, contrast, saturation, and hue, each with a 50% chance, in random order.
@@ -54,13 +55,13 @@ def flip(image, boxes, masks):
     # Flip image
     new_image = FT.hflip(image)
 
-    #Flip mask (HxW)
+    # Flip mask (HxW)
     new_masks = []
     for i in range(len(masks)):
         flipped_img = cv2.flip(masks[i].numpy(), 1)
         new_masks.append(flipped_img)
     new_masks = torch.tensor(new_masks, dtype=torch.uint8)
-    
+
     # Flip boxes
     new_boxes = boxes
     new_boxes[:, 0] = image.width - boxes[:, 0] - 1
@@ -113,122 +114,124 @@ def find_jaccard_overlap(set_1, set_2):
     return intersection / union  # (n1, n2)
 
 
-
 def get_enclosing_box(corners):
     """Get an enclosing box for ratated corners of a bounding box
-    
+
     Parameters
     ----------
-    
+
     corners : numpy.ndarray
-        Numpy array of shape `N x 8` containing N bounding boxes each described by their 
-        corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`  
-    
-    Returns 
+        Numpy array of shape `N x 8` containing N bounding boxes each described by their
+        corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`
+
+    Returns
     -------
-    
+
     numpy.ndarray
-        Numpy array containing enclosing bounding boxes of shape `N X 4` where N is the 
+        Numpy array containing enclosing bounding boxes of shape `N X 4` where N is the
         number of bounding boxes and the bounding boxes are represented in the
         format `x1 y1 x2 y2`
-        
+
     """
-    x_ = corners[:,[0,2,4,6]]
-    y_ = corners[:,[1,3,5,7]]
-    
-    xmin = np.min(x_,1).reshape(-1,1)
-    ymin = np.min(y_,1).reshape(-1,1)
-    xmax = np.max(x_,1).reshape(-1,1)
-    ymax = np.max(y_,1).reshape(-1,1)
-    
-    final = np.hstack((xmin, ymin, xmax, ymax,corners[:,8:]))
-    
+    x_ = corners[:, [0, 2, 4, 6]]
+    y_ = corners[:, [1, 3, 5, 7]]
+
+    xmin = np.min(x_, 1).reshape(-1, 1)
+    ymin = np.min(y_, 1).reshape(-1, 1)
+    xmax = np.max(x_, 1).reshape(-1, 1)
+    ymax = np.max(y_, 1).reshape(-1, 1)
+
+    final = np.hstack((xmin, ymin, xmax, ymax, corners[:, 8:]))
+
     return final
+
+
 def bbox_area(bbox):
-    return (bbox[:,2] - bbox[:,0])*(bbox[:,3] - bbox[:,1])
+    return (bbox[:, 2] - bbox[:, 0]) * (bbox[:, 3] - bbox[:, 1])
+
 
 def clip_box(label, mask, bbox, clip_box, alpha):
     """Clip the bounding boxes to the borders of an image
-    
+
     Parameters
     ----------
-    
+
     bbox: numpy.ndarray
-        Numpy array containing bounding boxes of shape `N X 4` where N is the 
+        Numpy array containing bounding boxes of shape `N X 4` where N is the
         number of bounding boxes and the bounding boxes are represented in the
         format `x1 y1 x2 y2`
-    
+
     clip_box: numpy.ndarray
         An array of shape (4,) specifying the diagonal co-ordinates of the image
         The coordinates are represented in the format `x1 y1 x2 y2`
-        
+
     alpha: float
-        If the fraction of a bounding box left in the image after being clipped is 
-        less than `alpha` the bounding box is dropped. 
-    
+        If the fraction of a bounding box left in the image after being clipped is
+        less than `alpha` the bounding box is dropped.
+
     Returns
     -------
-    
+
     numpy.ndarray
-        Numpy array containing **clipped** bounding boxes of shape `N X 4` where N is the 
+        Numpy array containing **clipped** bounding boxes of shape `N X 4` where N is the
         number of bounding boxes left are being clipped and the bounding boxes are represented in the
-        format `x1 y1 x2 y2` 
-    
+        format `x1 y1 x2 y2`
+
     """
-    ar_ = (bbox_area(bbox))
-    x_min = np.maximum(bbox[:,0], clip_box[0]).reshape(-1,1)
-    y_min = np.maximum(bbox[:,1], clip_box[1]).reshape(-1,1)
-    x_max = np.minimum(bbox[:,2], clip_box[2]).reshape(-1,1)
-    y_max = np.minimum(bbox[:,3], clip_box[3]).reshape(-1,1)
-    
-    new_bbox = np.hstack((x_min, y_min, x_max, y_max, bbox[:,4:]))
-    
-    delta_area = ((ar_ - bbox_area(new_bbox))/ar_)
-    
+    ar_ = bbox_area(bbox)
+    x_min = np.maximum(bbox[:, 0], clip_box[0]).reshape(-1, 1)
+    y_min = np.maximum(bbox[:, 1], clip_box[1]).reshape(-1, 1)
+    x_max = np.minimum(bbox[:, 2], clip_box[2]).reshape(-1, 1)
+    y_max = np.minimum(bbox[:, 3], clip_box[3]).reshape(-1, 1)
+
+    new_bbox = np.hstack((x_min, y_min, x_max, y_max, bbox[:, 4:]))
+
+    delta_area = (ar_ - bbox_area(new_bbox)) / ar_
+
     mask_filter = (delta_area < (1 - alpha)).astype(int)
-    
+
     # clip bbox, label, mask
-    bbox_clipped = bbox[mask_filter == 1,:]
+    bbox_clipped = bbox[mask_filter == 1, :]
     label_clipped = label[mask_filter == 1]
-    mask_clipped = mask[mask_filter == 1,:]
-    
+    mask_clipped = mask[mask_filter == 1, :]
+
     return bbox_clipped, label_clipped, mask_clipped
 
 
 def get_corners(bboxes):
-    
+
     """Get corners of bounding boxes
-    
+
     Parameters
     ----------
     bboxes: numpy.ndarray
-        Numpy array containing bounding boxes of shape `N X 4` where N is the 
+        Numpy array containing bounding boxes of shape `N X 4` where N is the
         number of bounding boxes and the bounding boxes are represented in the
         format `x1 y1 x2 y2`
-    
+
     returns
     -------
     numpy.ndarray
-        Numpy array of shape `N x 8` containing N bounding boxes each described by their 
-        corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`      
+        Numpy array of shape `N x 8` containing N bounding boxes each described by their
+        corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`
     """
-    width = (bboxes[:,2] - bboxes[:,0]).reshape(-1,1)
-    height = (bboxes[:,3] - bboxes[:,1]).reshape(-1,1)
-    
-    x1 = bboxes[:,0].reshape(-1,1)
-    y1 = bboxes[:,1].reshape(-1,1)
-    
+    width = (bboxes[:, 2] - bboxes[:, 0]).reshape(-1, 1)
+    height = (bboxes[:, 3] - bboxes[:, 1]).reshape(-1, 1)
+
+    x1 = bboxes[:, 0].reshape(-1, 1)
+    y1 = bboxes[:, 1].reshape(-1, 1)
+
     x2 = x1 + width
-    y2 = y1 
-    
+    y2 = y1
+
     x3 = x1
     y3 = y1 + height
-    
-    x4 = bboxes[:,2].reshape(-1,1)
-    y4 = bboxes[:,3].reshape(-1,1)
-    
-    corners = np.hstack((x1,y1,x2,y2,x3,y3,x4,y4))
-    
+
+    x4 = bboxes[:, 2].reshape(-1, 1)
+    y4 = bboxes[:, 3].reshape(-1, 1)
+
+    corners = np.hstack((x1, y1, x2, y2, x3, y3, x4, y4))
+
     return corners
 
 
@@ -243,13 +246,13 @@ def random_crop(image, targets):
 
     :return: cropped image, updated bounding box coordinates, updated labels
     """
-    masks = targets['masks']
-    boxes = targets['boxes']
-    labels = targets['labels']
-    
+    masks = targets["masks"]
+    boxes = targets["boxes"]
+    labels = targets["labels"]
+
     original_h = image.size(1)
     original_w = image.size(2)
-    
+
     # Keep choosing a minimum overlap until a successful crop is made
     while True:
         # Randomly draw the value for minimum overlap
@@ -296,10 +299,10 @@ def random_crop(image, targets):
 
             # Crop image
             new_image = image[:, top:bottom, left:right]  # (3, new_h, new_w)
-            
+
             # Crop masks
             new_masks = masks[:, top:bottom, left:right]
-            
+
             # Find centers of original bounding boxes
             bb_centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0  # (n_objects, 2)
 
@@ -318,7 +321,7 @@ def random_crop(image, targets):
             # Discard bounding boxes that don't meet this criterion
             new_boxes = boxes[centers_in_crop, :]
             new_labels = labels[centers_in_crop]
-            new_masks = new_masks[centers_in_crop,:,:]
+            new_masks = new_masks[centers_in_crop, :, :]
             # Calculate bounding boxes' new coordinates in the crop
             new_boxes[:, :2] = torch.max(
                 new_boxes[:, :2], crop[:2]
@@ -330,20 +333,20 @@ def random_crop(image, targets):
             new_boxes[:, 2:] -= crop[:2]
 
             new_targets = {}
-            new_targets['masks'] = new_masks
-            new_targets['boxes'] = new_boxes
-            new_targets['labels'] = new_labels
-            
+            new_targets["masks"] = new_masks
+            new_targets["boxes"] = new_boxes
+            new_targets["labels"] = new_labels
+
             return new_image, new_targets
 
 
-def rotate_box(corners,angle,  cx, cy, h, w):
-    
+def rotate_box(corners, angle, cx, cy, h, w):
+
     """Rotate the bounding box.
     Parameters
     ----------
     corners : numpy.ndarray
-        Numpy array of shape `N x 8` containing N bounding boxes each described by their 
+        Numpy array of shape `N x 8` containing N bounding boxes each described by their
         corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`
     angle : float
         angle by which the image is to be rotated
@@ -351,38 +354,41 @@ def rotate_box(corners,angle,  cx, cy, h, w):
         x coordinate of the center of image (about which the box will be rotated)
     cy : int
         y coordinate of the center of image (about which the box will be rotated)
-    h : int 
+    h : int
         height of the image
-    w : int 
+    w : int
         width of the image
-    
+
     Returns
     -------
     numpy.ndarray
-        Numpy array of shape `N x 8` containing N rotated bounding boxes each described by their 
+        Numpy array of shape `N x 8` containing N rotated bounding boxes each described by their
         corner co-ordinates `x1 y1 x2 y2 x3 y3 x4 y4`
     """
-    corners = corners.reshape(-1,2)
-    corners = np.hstack((corners, np.ones((corners.shape[0],1), dtype = type(corners[0][0]))))
-    
+    corners = corners.reshape(-1, 2)
+    corners = np.hstack(
+        (corners, np.ones((corners.shape[0], 1), dtype=type(corners[0][0])))
+    )
+
     M = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
-    
+
     cos = np.abs(M[0, 0])
     sin = np.abs(M[0, 1])
-    
+
     nW = int((h * sin) + (w * cos))
     nH = int((h * cos) + (w * sin))
     # adjust the rotation matrix to take into account translation
     M[0, 2] += (nW / 2) - cx
     M[1, 2] += (nH / 2) - cy
     # Prepare the vector to be transformed
-    calculated = np.dot(M,corners.T).T
-    
-    calculated = calculated.reshape(-1,8)
-    
+    calculated = np.dot(M, corners.T).T
+
+    calculated = calculated.reshape(-1, 8)
+
     return calculated
 
-def rotate_im(image, angle, mode='image'):
+
+def rotate_im(image, angle, mode="image"):
     """Rotate the image.
 
     Rotate the image such that the rotated image is enclosed inside the tightest
@@ -403,10 +409,10 @@ def rotate_im(image, angle, mode='image'):
     """
     # grab the dimensions of the image and then determine the
     # centre
-    if mode == 'image':
-        (h, w) = image.shape[:2] 
-    if mode == 'masks':
-        (h, w) = image.shape[1:3] # image[0] is number of masks
+    if mode == "image":
+        (h, w) = image.shape[:2]
+    if mode == "masks":
+        (h, w) = image.shape[1:3]  # image[0] is number of masks
     (cX, cY) = (w // 2, h // 2)
 
     # grab the rotation matrix (applying the negative of the
@@ -425,18 +431,24 @@ def rotate_im(image, angle, mode='image'):
     M[1, 2] += (nH / 2) - cY
 
     # perform the actual rotation and return the image
-    if mode == 'image':
-        image = cv2.warpAffine(image, M, (nW, nH), flags=cv2.INTER_CUBIC,
-                               borderMode=cv2.BORDER_CONSTANT,
-                               borderValue=(0.485,0.456,0.406))
-    if mode == 'masks':
+    if mode == "image":
+        image = cv2.warpAffine(
+            image,
+            M,
+            (nW, nH),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(0.485, 0.456, 0.406),
+        )
+    if mode == "masks":
         new_masks = []
         for i in range(len(image)):
             _mask = cv2.warpAffine(image[i], M, (nW, nH), flags=cv2.INTER_CUBIC)
             new_masks.append(_mask)
-        image = np.array(new_masks) 
-    
+        image = np.array(new_masks)
+
     return image
+
 
 def RandomRotate(img, targets):
     """Randomly rotates an image
@@ -460,34 +472,36 @@ def RandomRotate(img, targets):
         Tranformed bounding box co-ordinates of the format `n x 4` where n is
         number of bounding boxes and 4 represents `x1,y1,x2,y2` of the box
     """
-    img = img.numpy().transpose(1,2,0)  # to (H,W,C)
-    boxes = targets['boxes'].numpy()
-    masks = targets['masks'].numpy()
-    labels = targets['labels'].numpy()
-    
+    img = img.numpy().transpose(1, 2, 0)  # to (H,W,C)
+    boxes = targets["boxes"].numpy()
+    masks = targets["masks"].numpy()
+    labels = targets["labels"].numpy()
+
     w, h = img.shape[1], img.shape[0]
     cx, cy = w // 2, h // 2
-    while(True):
+    while True:
         angle = (-10, 10)
         angle = random.uniform(*angle)
-        #rotate image
-        new_img = rotate_im(img, angle, mode='image')
-        
-        #rotate masks
-        new_masks = rotate_im(masks, angle, mode='masks')
+        # rotate image
+        new_img = rotate_im(img, angle, mode="image")
 
-        #rotate bounding boxes
+        # rotate masks
+        new_masks = rotate_im(masks, angle, mode="masks")
+
+        # rotate bounding boxes
         corners = get_corners(boxes)
         corners = np.hstack((corners, boxes[:, 4:]))
         corners[:, :8] = rotate_box(corners[:, :8], angle, cx, cy, h, w)
         new_boxes = get_enclosing_box(corners)  # adjust rotated boxes
 
         # filter out if changes is to large
-        new_boxes, new_labels, new_masks = clip_box(labels, new_masks, new_boxes, [0, 0, w, h], 0.25)
+        new_boxes, new_labels, new_masks = clip_box(
+            labels, new_masks, new_boxes, [0, 0, w, h], 0.25
+        )
         if len(new_labels) > 0:
             break
-            
-    new_targets={}
+
+    new_targets = {}
     new_targets["boxes"] = torch.from_numpy(new_boxes)
     new_targets["labels"] = torch.from_numpy(new_labels)
     new_targets["masks"] = torch.from_numpy(new_masks)
@@ -498,8 +512,8 @@ def transform123(image, target, split):
     """
     Apply the transformations above.
     :param image: PIL Image
-    :target: 
-        param boxes (n_instances, 4): bounding boxes in boundary coordinates, a tensor of dimensions 
+    :target:
+        param boxes (n_instances, 4): bounding boxes in boundary coordinates, a tensor of dimensions
         param masks (n_instances, HxW size_of_image): masks of instances in a image.
         param labels(n_instances): labels of objects, a tensor of dimensions (n_objects)
     :(deprecated)param split: one of 'TRAIN' or 'TEST', since different sets of transformations are applied
@@ -510,57 +524,57 @@ def transform123(image, target, split):
     # see: https://pytorch.org/docs/stable/torchvision/models.html
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
-    
-    new_image = image            # image: PIL image (H,W,C)
-    new_targets = target        
+
+    new_image = image  # image: PIL image (H,W,C)
+    new_targets = target
     new_boxes = target["boxes"]
     new_labels = target["labels"]
-    new_masks = target["masks"]  
-    
+    new_masks = target["masks"]
+
     # A series of photometric distortions in random order, each with 50% chance of occurrence, as in Caffe repo
     if random.random() < 0.5:
-#         new_image = photometric_distort(new_image)
+        #         new_image = photometric_distort(new_image)
         new_image = ImageNetPolicy()(new_image)
 
     # Flip image with a 50% chance
     if random.random() < 0.5:
-        new_image, new_targets['boxes'], new_targets['masks'] = flip(new_image, new_boxes, new_masks)
-    
+        new_image, new_targets["boxes"], new_targets["masks"] = flip(
+            new_image, new_boxes, new_masks
+        )
+
     #####
     # Tensor Operation
     # image: PIL(H,W,C) to tensor (C,H,W),  pixel value (0,1)
     #####
     new_image = FT.to_tensor(new_image)
-    
+
     # RandomRotate might drop boxes, masks, labels  trhee together. At leat one left.
     if random.random() < 0.5:
-        new_image, new_targets = RandomRotate(new_image, new_targets) # rotate and fill borderValue as mean = [0.485, 0.456, 0.406]
-    
+        new_image, new_targets = RandomRotate(
+            new_image, new_targets
+        )  # rotate and fill borderValue as mean = [0.485, 0.456, 0.406]
+
     # Randomly crop image (zoom in)
     if random.random() < 0.5:
         new_image, new_targets = random_crop(new_image, new_targets)
-        
+
     return new_image, new_targets
 
 
-from dataset.PASCAL_VOC_Dataset import PASCAL_VOC_Dataset 
+from dataset.PASCAL_VOC_Dataset import PASCAL_VOC_Dataset
 
 if __name__ == "__mian__":
-    
+
     dataset = PASCAL_VOC_Dataset(
-        folder_path=config.train_folder,
-        trans=dataset.utils.transform123,
-        train=True                 
+        folder_path=config.train_folder, trans=dataset.utils.transform123, train=True
     )
 
     rst = dataset[17]
     img, targets = rst
 
-    new_img = np.transpose(img.numpy(), (1,2,0))
-    visualize_detetion_result(new_img, targets['labels'], targets['boxes'])
-    for i in range(len(targets['masks'])):
-        plt.subplot(2,3, i+1)
-        plt.title("Instance {}, category={}".format(i+1, targets['labels'][i]))
-        plt.imshow(targets['masks'][i])
-
-        
+    new_img = np.transpose(img.numpy(), (1, 2, 0))
+    visualize_detetion_result(new_img, targets["labels"], targets["boxes"])
+    for i in range(len(targets["masks"])):
+        plt.subplot(2, 3, i + 1)
+        plt.title("Instance {}, category={}".format(i + 1, targets["labels"][i]))
+        plt.imshow(targets["masks"][i])

@@ -41,6 +41,7 @@ from pycocotools.cocoeval import COCOeval
 
 
 import sys
+
 # def calculate_mAP(targets, pred_targets):
 #     # tensor(device=cuda:)  -> mAP
 #     pred_targets = 8
@@ -52,7 +53,6 @@ import sys
 #         ground_truth_data = json.load(open(gt_file))
 #         ovmax = -1
 #         gt_match = -1
-
 
 
 # # Prediction, list of instance-wise dictionary
@@ -71,34 +71,31 @@ import sys
 # val_targets += pred_coco
 
 
-
 def binary_mask_to_rle(binary_mask):
-    rle = {'counts': [], 'size': list(binary_mask.shape)}
-    counts = rle.get('counts')
-    for i, (value, elements) in enumerate(groupby(binary_mask.ravel(order='F'))):
+    rle = {"counts": [], "size": list(binary_mask.shape)}
+    counts = rle.get("counts")
+    for i, (value, elements) in enumerate(groupby(binary_mask.ravel(order="F"))):
         if i == 0 and value == 1:
             counts.append(0)
         counts.append(len(list(elements)))
-    compressed_rle = maskutil.frPyObjects(rle, rle.get('size')[0], rle.get('size')[1])
-    compressed_rle['counts'] = str(compressed_rle['counts'], encoding='utf-8')
+    compressed_rle = maskutil.frPyObjects(rle, rle.get("size")[0], rle.get("size")[1])
+    compressed_rle["counts"] = str(compressed_rle["counts"], encoding="utf-8")
     return compressed_rle
 
+
 def calculate_mAP(gt_targets, pred_targets):
-    
 
     for instance in gt_targets:
-        instance['segmentation']
-    cocoEval = COCOeval(cocoGt, cocoDt, 'segm')
+        instance["segmentation"]
+    cocoEval = COCOeval(cocoGt, cocoDt, "segm")
     cocoEval.evaluate()
     cocoEval.accumulate()
     cocoEval.summarize()
-    
-    
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 print(torch.cuda.current_device())
-device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 print(device)
 
 
@@ -121,12 +118,8 @@ prediction_file_name = config.result_pth + "08056148_1.json"
 
 
 print("Start evaluating. Result saved in {}".format(prediction_file_name))
-    
-dataset = PASCAL_VOC_Dataset(
-    folder_path=config.test_folder,
-    trans=None,
-    train=True               
-)
+
+dataset = PASCAL_VOC_Dataset(folder_path=config.test_folder, trans=None, train=True)
 dataloader = DataLoader(
     dataset,
     batch_size=2,
@@ -145,36 +138,42 @@ for imgs, _targets in dataloader:
             predict_begin = time.time()
             pred = model(imgs)
             running_time += time.time() - predict_begin
-            for img_i,p in enumerate(pred):
-                num_instances = len(p['labels'])    # If any objects are detected in this image
-                for i in range(num_instances): # Loop all instances
-                    
-                    # record dictionary info of the instance 
-                    image_id = _targets[img_i]['image_id'] 
-                    
-                    label = int(p['labels'][i].cpu().numpy())
-                    
-                    mask = p['masks'][i].cpu().numpy().squeeze(0)
-                    binary_mask = np.where(mask >0, 1,0)
-                    
-                    score = float(p['scores'][i].cpu().numpy())
-                    
+            for img_i, p in enumerate(pred):
+                num_instances = len(
+                    p["labels"]
+                )  # If any objects are detected in this image
+                for i in range(num_instances):  # Loop all instances
+
+                    # record dictionary info of the instance
+                    image_id = _targets[img_i]["image_id"]
+
+                    label = int(p["labels"][i].cpu().numpy())
+
+                    mask = p["masks"][i].cpu().numpy().squeeze(0)
+                    binary_mask = np.where(mask > 0, 1, 0)
+
+                    score = float(p["scores"][i].cpu().numpy())
+
                     instance_dict = {}
-                    instance_dict['image_id'] = image_id # this imgid must be same as the key of test.json
-                    instance_dict['category_id'] = label
-                    instance_dict['segmentation'] = binary_mask_to_rle(binary_mask) # save binary mask to RLE, e.g. 512x512 -> rle
-                    instance_dict['score'] = score
+                    instance_dict[
+                        "image_id"
+                    ] = image_id  # this imgid must be same as the key of test.json
+                    instance_dict["category_id"] = label
+                    instance_dict["segmentation"] = binary_mask_to_rle(
+                        binary_mask
+                    )  # save binary mask to RLE, e.g. 512x512 -> rle
+                    instance_dict["score"] = score
                     coco_dt.append(instance_dict)
 
 with open(prediction_file_name, "w") as json_f:
     json.dump(coco_dt, json_f)
-    
-print("Finished")
-    
-cocoGt = COCO("./data/pascal_train.json")
-cocoDt = cocoGt.loadRes(prediction_file_name )
 
-cocoEval = COCOeval(cocoGt, cocoDt, 'segm')
+print("Finished")
+
+cocoGt = COCO("./data/pascal_train.json")
+cocoDt = cocoGt.loadRes(prediction_file_name)
+
+cocoEval = COCOeval(cocoGt, cocoDt, "segm")
 cocoEval.evaluate()
 cocoEval.accumulate()
 print(cocoEval.summarize())

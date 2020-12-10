@@ -5,7 +5,10 @@ from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.models.detection.mask_rcnn import MaskRCNN
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
-from torchvision.ops.feature_pyramid_network import LastLevelMaxPool, FeaturePyramidNetwork
+from torchvision.ops.feature_pyramid_network import (
+    LastLevelMaxPool,
+    FeaturePyramidNetwork,
+)
 
 import pytorch_image_models.timm.models.resnest as resnest
 from torchvision.ops import misc as misc_nn_ops
@@ -27,8 +30,10 @@ class FrozenBatchNorm2d(torch.nn.Module):
     ):
         # n=None for backward-compatibility
         if n is not None:
-            warnings.warn("`n` argument is deprecated and has been renamed `num_features`",
-                          DeprecationWarning)
+            warnings.warn(
+                "`n` argument is deprecated and has been renamed `num_features`",
+                DeprecationWarning,
+            )
             num_features = n
         super(FrozenBatchNorm2d, self).__init__()
         self.eps = eps
@@ -47,13 +52,19 @@ class FrozenBatchNorm2d(torch.nn.Module):
         unexpected_keys: List[str],
         error_msgs: List[str],
     ):
-        num_batches_tracked_key = prefix + 'num_batches_tracked'
+        num_batches_tracked_key = prefix + "num_batches_tracked"
         if num_batches_tracked_key in state_dict:
             del state_dict[num_batches_tracked_key]
 
         super(FrozenBatchNorm2d, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         # move reshapes to the beginning
@@ -88,7 +99,10 @@ class BackboneWithFPN(nn.Module):
     Attributes:
         out_channels (int): the number of channels in the FPN
     """
-    def __init__(self, backbone, return_layers, in_channels_list, out_channels, extra_blocks=None):
+
+    def __init__(
+        self, backbone, return_layers, in_channels_list, out_channels, extra_blocks=None
+    ):
         super(BackboneWithFPN, self).__init__()
 
         self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
@@ -104,33 +118,38 @@ class BackboneWithFPN(nn.Module):
         x = self.fpn(x)
         return x
 
+
 def ResnestBackboneWithFPN():
     backbone = resnest.resnest50d(pretrained=True)
     trainable_layers = 3
-    layers_to_train = ['layer4', 'layer3', 'layer2', 'layer1', 'conv1'][:trainable_layers]
+    layers_to_train = ["layer4", "layer3", "layer2", "layer1", "conv1"][
+        :trainable_layers
+    ]
     extra_blocks = LastLevelMaxPool()
     # frextra_blocks eze layers only if pretrained backbone is used
     for name, parameter in backbone.named_parameters():
         if all([not name.startswith(layer) for layer in layers_to_train]):
             parameter.requires_grad_(False)
-        
+
     returned_layers = [1, 2, 3, 4]
     assert min(returned_layers) > 0 and max(returned_layers) < 5
-    return_layers = {f'layer{k}': str(v) for v, k in enumerate(returned_layers)}
+    return_layers = {f"layer{k}": str(v) for v, k in enumerate(returned_layers)}
     in_channels_list = [256, 512, 1024, 2048]
     out_channels = 1024
-    return BackboneWithFPN(backbone, return_layers, 
-                            in_channels_list, 
-                            out_channels,
-                            extra_blocks = LastLevelMaxPool()
-                           ) 
-                                    
-                                                  
+    return BackboneWithFPN(
+        backbone,
+        return_layers,
+        in_channels_list,
+        out_channels,
+        extra_blocks=LastLevelMaxPool(),
+    )
+
+
 def get_model_instance_segmentation(num_classes):
     # load an instance segmentation model pre-trained pre-trained on COCO
     backbone = ResnestBackboneWithFPN()
     model = MaskRCNN(backbone, num_classes=21, min_size=500, max_size=500)
-#     model = torchvision.models.detection.mask_rcnn.maskrcnn_resnet50_fpn(pretrained=True, min_size=500, max_size=600)
+    #     model = torchvision.models.detection.mask_rcnn.maskrcnn_resnet50_fpn(pretrained=True, min_size=500, max_size=600)
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
@@ -140,8 +159,8 @@ def get_model_instance_segmentation(num_classes):
     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
     hidden_layer = 256
     # and replace the mask predictor with a new one
-    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
-                                                       hidden_layer,
-                                                       num_classes)
+    model.roi_heads.mask_predictor = MaskRCNNPredictor(
+        in_features_mask, hidden_layer, num_classes
+    )
 
     return model
