@@ -154,7 +154,7 @@ if __name__ == "__main__":
     checkpoint = None
 
     # define training and validation data loaders
-    dataset = PASCAL_VOC_Dataset(
+    dataset = dataset.PASCAL_VOC_Dataset(
         folder_path=config.train_folder, trans=dataset.utils.transform123, train=True
     )
 
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     dataloader = {"train": dataloader_train, "val": dataloader_test}
     if checkpoint is None:
         # train on the GPU or on the CPU, if a GPU is not available
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
         device = (
             torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
         )

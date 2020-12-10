@@ -10,7 +10,7 @@ from torchvision.ops.feature_pyramid_network import (
     FeaturePyramidNetwork,
 )
 
-import pytorch_image_models.timm.models.resnest as resnest
+import timm
 from torchvision.ops import misc as misc_nn_ops
 from torch import Tensor, Size
 from torch.jit.annotations import List, Optional, Tuple
@@ -120,7 +120,7 @@ class BackboneWithFPN(nn.Module):
 
 
 def ResnestBackboneWithFPN():
-    backbone = resnest.resnest50d(pretrained=True)
+    backbone = timm.models.resnest.resnest50d(pretrained=True)
     trainable_layers = 3
     layers_to_train = ["layer4", "layer3", "layer2", "layer1", "conv1"][
         :trainable_layers
